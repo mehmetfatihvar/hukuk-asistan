@@ -26,6 +26,9 @@ python src/validate_chunks.py
 echo "==> [5/9] Embedding"
 python src/05_embedding.py
 
+echo "==> [5b] Validate chunks semantically (coherence / separability / redundancy)"
+python src/validate_semantic.py
+
 echo "==> [6/9] Build FAISS index"
 python src/06_faiss_index.py
 

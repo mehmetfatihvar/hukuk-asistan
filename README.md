@@ -110,6 +110,27 @@ python src/validate_chunks.py --sample 5 # also dump 5 real decisions' section s
 
 The script exits non-zero on failure, so it doubles as a CI gate.
 
+### Semantic validation
+
+Structural checks confirm the chunks are *well-formed*; `src/validate_semantic.py`
+checks whether they are *good semantic units* (needs `chunks.csv`, and reuses
+`embeddings.npy` when present):
+
+```bash
+python src/validate_semantic.py               # all three metrics
+python src/validate_semantic.py --skip-intra  # B & C only (no model load)
+```
+
+- **A. Intra-chunk coherence** — mean pairwise cosine of the sentences inside a
+  chunk (sampled). Low ⇒ a chunk blends unrelated content (bad boundary).
+- **B. Section separability** — within-section vs cross-section similarity; a
+  positive margin means the OYAL/KANUN/KARAR/GEREKÇE labels carry real semantic
+  signal (what the reranker relies on).
+- **C. Redundancy** — share of chunks with a near-duplicate from a *different*
+  decision; high ⇒ boilerplate that preprocessing should strip.
+
+These are diagnostic signals (⚠️/✅ hints), not hard pass/fail gates.
+
 ## Search from the CLI
 
 ```bash

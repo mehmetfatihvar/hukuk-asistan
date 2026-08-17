@@ -9,8 +9,14 @@ Clean and normalise the raw decision text.
 Steps:
   1. Remove boilerplate header lines (MAHKEMESİ, TARİHİ, ...).
   2. Normalise whitespace (\\n, \\t, multiple spaces → single space).
-  3. Quality filtering (drop text shorter than MIN_TEXT_CHARS, drop empties).
-  4. Save the cleaned CSV and print a before/after comparison.
+  3. Remove learned boilerplate patterns discovered by identify_boilerplate.py
+     (data/processed/boilerplate_patterns.json), if that file exists.
+  4. Quality filtering (drop text shorter than MIN_TEXT_CHARS, drop empties).
+  5. Save the cleaned CSV and print a before/after comparison.
+
+The discovery → cleaning loop:
+    03_preprocess → 04_smart_chunking → identify_boilerplate (writes JSON)
+    → re-run 03_preprocess (now strips the confirmed patterns) → 04 …
 
 Run:
     python src/03_preprocess.py
@@ -18,6 +24,7 @@ Run:
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 
@@ -54,16 +61,97 @@ _BOILERPLATE_RE = re.compile(
 _WHITESPACE_RE = re.compile(r"\s+")
 
 
+# --------------------------------------------------------------------------- #
+# Learned boilerplate patterns (from identify_boilerplate.py)
+# --------------------------------------------------------------------------- #
+BOILERPLATE_JSON = config.PROCESSED_DIR / "boilerplate_patterns.json"
+
+# Reverse of the normalisation used in identify_boilerplate.py: turn the
+# placeholder tokens back into the regex that matches the case-specific values.
+_PLACEHOLDER_REGEX = {
+    "<DATE>": r"\d{1,2}[.\-/]\d{1,2}[.\-/]\d{2,4}",
+    "<NO>": r"\d{4}\s*/\s*\d+",
+    "<MADDE>": r"m(?:adde|\.)\s*\d+",
+    "<NUM>": r"\d+",
+}
+_PLACEHOLDER_SPLIT = re.compile(r"(<DATE>|<NO>|<MADDE>|<NUM>)")
+
+
+def _word_to_regex(word: str) -> str:
+    """Regex for a single whitespace-delimited token, expanding placeholders."""
+    out: list[str] = []
+    for piece in _PLACEHOLDER_SPLIT.split(word):
+        if not piece:
+            continue
+        out.append(_PLACEHOLDER_REGEX.get(piece) or re.escape(piece))
+    return "".join(out)
+
+
+def _pattern_to_regex(normalized: str) -> re.Pattern | None:
+    """
+    Convert a mined (normalised) sentence into a removal regex. Words are joined
+    with ``\\s+`` so whitespace matches flexibly, and placeholder tokens
+    (<DATE>, <NO>, <MADDE>, <NUM>) expand back to their value regex.
+    """
+    words = normalized.split()
+    if not words:
+        return None
+    try:
+        return re.compile(r"\s+".join(_word_to_regex(w) for w in words), re.IGNORECASE)
+    except re.error:
+        return None
+
+
+def load_boilerplate_patterns(path=BOILERPLATE_JSON) -> list[re.Pattern]:
+    """
+    Build the list of compiled boilerplate-removal regexes from the JSON that
+    identify_boilerplate.py produces. Returns [] when the file is absent, so
+    the first pass (before discovery) behaves exactly as before.
+    """
+    patterns: list[re.Pattern] = []
+    if not path.exists():
+        return patterns
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return patterns
+
+    for seed in data.get("seed_patterns", []):
+        rx = seed.get("regex")
+        if rx:
+            try:
+                patterns.append(re.compile(rx, re.IGNORECASE))
+            except re.error:
+                pass
+    for mined in data.get("mined_patterns", []):
+        norm = mined.get("pattern")
+        if norm:
+            rx = _pattern_to_regex(norm)
+            if rx is not None:
+                patterns.append(rx)
+    return patterns
+
+
+# Compiled once at import; main() reports how many were loaded.
+_BP_PATTERNS: list[re.Pattern] = load_boilerplate_patterns()
+
+
 def clean_text(text: str) -> str:
     """Apply boilerplate removal and whitespace normalisation to one decision."""
     if not isinstance(text, str):
         return ""
-    # 1. Remove boilerplate header lines.
+    # 1. Remove boilerplate header lines (needs original line breaks).
     text = _BOILERPLATE_RE.sub(" ", text)
-    # 2. Normalise all whitespace (newlines, tabs, repeated spaces) to a space.
+    # 2. Normalise whitespace first so learned (single-space) patterns match.
     text = _WHITESPACE_RE.sub(" ", text)
-    # 3. Trim.
-    return text.strip()
+    # 3. Remove learned boilerplate sentences/phrases.
+    for pat in _BP_PATTERNS:
+        text = pat.sub(" ", text)
+    # 4. Tidy orphan sentence terminators left where a sentence was removed
+    #    (e.g. "...sabittir. . Tahliyeye..." -> "...sabittir. Tahliyeye...").
+    text = re.sub(r"\.(?:\s*\.)+", ".", text)
+    # 5. Collapse any whitespace the removals left behind, then trim.
+    return _WHITESPACE_RE.sub(" ", text).strip()
 
 
 def main() -> None:
@@ -74,6 +162,13 @@ def main() -> None:
         )
 
     config.ensure_dirs()
+    if _BP_PATTERNS:
+        print(f"Loaded {len(_BP_PATTERNS)} learned boilerplate pattern(s) "
+              f"from {BOILERPLATE_JSON.name}.")
+    else:
+        print("No learned boilerplate patterns yet "
+              "(run identify_boilerplate.py, then re-run this step to strip them).")
+
     df = pd.read_csv(config.RAW_CSV)
     n_before = len(df)
     df["text"] = df["text"].fillna("").astype(str)
@@ -99,6 +194,7 @@ def main() -> None:
     print(f"Rows dropped  : {before_filter - n_after:,} "
           f"(too short / empty / duplicate)")
     print(f"Rows out      : {n_after:,}")
+    print(f"Learned patterns applied : {len(_BP_PATTERNS)}")
     print("\nText length (characters):")
     print(f"  mean  before → after : {len_before.mean():,.0f} → {len_after.mean():,.0f}")
     print(f"  median before → after: {len_before.median():,.0f} → {len_after.median():,.0f}")

@@ -154,6 +154,17 @@ python src/identify_boilerplate.py --show      # print a stratified sample only
 Results (seed + mined + reviewed patterns) are written to
 `data/processed/boilerplate_patterns.json`.
 
+**Closed loop:** on its next run `03_preprocess.py` automatically loads that
+JSON and strips the confirmed patterns (placeholder tokens like `<NO>`/`<DATE>`
+expand back to a value regex, so one mined pattern matches every case), then
+re-chunk with `04`. The full cycle:
+
+```
+03_preprocess → 04_smart_chunking → identify_boilerplate (writes JSON)
+             ↑                                              │
+             └──────────── re-run strips patterns ──────────┘
+```
+
 ## Search from the CLI
 
 ```bash

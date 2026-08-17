@@ -20,6 +20,9 @@ python src/03_preprocess.py
 echo "==> [4/9] Smart chunking"
 python src/04_smart_chunking.py
 
+echo "==> [4b] Validate chunks"
+python src/validate_chunks.py
+
 echo "==> [5/9] Embedding"
 python src/05_embedding.py
 

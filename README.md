@@ -75,6 +75,7 @@ python src/01_setup_dataset.py  # download 100K sample
 python src/02_explore_data.py   # exploratory report
 python src/03_preprocess.py     # clean text → decisions_clean.csv
 python src/04_smart_chunking.py # section-aware chunks → chunks.csv
+python src/validate_chunks.py   # validate chunking (fixtures + data health)
 python src/05_embedding.py      # embed chunks → embeddings.npy
 python src/06_faiss_index.py    # build index.faiss + chunk_mapping.pkl
 python src/07_search_engine.py  # 5 built-in test queries
@@ -82,6 +83,32 @@ python src/09_benchmark_test.py # 50-query benchmark
 ```
 
 …or all at once: `bash run_pipeline.sh`
+
+## Validating the chunks
+
+Chunking has no single ground-truth label, so correctness is checked on two
+levels with `src/validate_chunks.py`:
+
+```bash
+python src/validate_chunks.py            # fixtures (+ data health if chunks.csv exists)
+python src/validate_chunks.py --sample 5 # also dump 5 real decisions' section splits
+```
+
+1. **Fixture tests** (no dataset needed) — synthetic decisions with known
+   sections assert that: all four sections are detected, header *variants*
+   (`OLAYLAR`, `HÜKÜM`, `DEĞERLENDİRME`…) map to the right canonical section,
+   a lowercase word like `karar` does **not** start a section, a long
+   `GEREKÇE` splits **with overlap**, and a long `KANUN`/`KARAR` stays a single
+   **atomic** chunk.
+2. **Data health report** (once `chunks.csv` exists) — structural invariants
+   every chunk must satisfy (size ≤ `CHUNK_SIZE` for split chunks, valid
+   section, `is_atomic` consistency, `length` column matches, unique ids) plus
+   quality signals: the **GENEL-only rate** (share of decisions where no header
+   was detected — high means detection is failing on the real corpus) and
+   **word coverage** vs `decisions_clean.csv` (must be ≈1.0 — proves no content
+   was dropped during chunking).
+
+The script exits non-zero on failure, so it doubles as a CI gate.
 
 ## Search from the CLI
 

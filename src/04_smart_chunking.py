@@ -29,10 +29,11 @@ from __future__ import annotations
 import re
 import sys
 
-import pandas as pd
-from tqdm import tqdm
-
 import config
+
+# NOTE: pandas / tqdm are imported inside main() so the pure chunking functions
+# (extract_sections, chunk_section, chunk_decision) can be imported and unit
+# tested without those heavy dependencies installed (see validate_chunks.py).
 
 # --------------------------------------------------------------------------- #
 # Section detection
@@ -166,6 +167,9 @@ def chunk_decision(text: str) -> list[tuple[str, str, bool]]:
 # Main
 # --------------------------------------------------------------------------- #
 def main() -> None:
+    import pandas as pd
+    from tqdm import tqdm
+
     if not config.CLEAN_CSV.exists():
         sys.exit(
             f"Cleaned CSV not found at {config.CLEAN_CSV}.\n"

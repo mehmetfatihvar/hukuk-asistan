@@ -1,0 +1,29 @@
+# ===== Turkish Legal RAG System - Dependencies =====
+
+# LLM / Embeddings
+openai>=1.0.0
+sentence-transformers>=2.2.0
+torch>=2.0.0
+
+# Dataset
+datasets
+huggingface-hub
+
+# Vector search
+faiss-cpu
+
+# Data handling
+pandas
+numpy
+scikit-learn
+pyarrow
+
+# API
+fastapi
+uvicorn
+pydantic
+python-multipart
+
+# Utilities
+python-dotenv
+tqdm

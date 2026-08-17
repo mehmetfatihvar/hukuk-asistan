@@ -1,0 +1,20 @@
+# Virtualenv
+venv/
+.venv/
+
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# Data artifacts (large / generated — do NOT commit)
+data/raw/*.csv
+data/processed/*.csv
+data/processed/*.parquet
+data/processed/*.npy
+data/processed/*.faiss
+data/processed/*.index
+data/processed/*.pkl
+data/processed/*.json

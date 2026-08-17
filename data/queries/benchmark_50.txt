@@ -1,0 +1,68 @@
+# Benchmark queries for the Turkish Legal RAG system (50 total).
+#
+# Format (one query per line):
+#     query text | keyword1, keyword2, ...
+# The part after "|" lists expected keywords used to auto-label a retrieved
+# chunk as relevant (a chunk is relevant if similarity >= threshold AND it
+# contains at least one keyword). The "|" and keywords are optional; without
+# them relevance falls back to the similarity threshold alone.
+#
+# Lines starting with "#" and blank lines are ignored.
+
+# ---------- SIMPLE (10) ----------
+elektrik kaçağı | elektrik, kaçak, karşılıksız yararlanma
+boşanma | boşanma, evlilik
+taşınmaz | taşınmaz, tapu
+miras | miras, muris, tereke
+kira | kira, kiracı, kiralayan
+kıdem tazminatı | kıdem, tazminat, işçi
+trafik kazası | trafik, kaza, araç
+nafaka | nafaka, iştirak, yoksulluk
+velayet | velayet, çocuk
+ceza | ceza, mahkumiyet, suç
+
+# ---------- MEDIUM (15) ----------
+kira sözleşmesinin haklı nedenle feshi | kira, fesih, haklı neden
+işçinin iş sözleşmesini haklı feshi | işçi, fesih, iş sözleşmesi
+boşanmada maddi ve manevi tazminat | boşanma, tazminat, manevi
+trafik kazası destekten yoksun kalma | destekten yoksun, tazminat, kaza
+taşınmaz satış vaadi sözleşmesi | satış vaadi, taşınmaz, sözleşme
+ticari alacağın tahsili ve temerrüt faizi | alacak, temerrüt, faiz
+miras paylaşımında tenkis davası | tenkis, saklı pay, miras
+haksız fiil nedeniyle tazminat | haksız fiil, zarar, tazmin
+tüketici hakem heyeti kararına itiraz | tüketici, hakem heyeti, itiraz
+kambiyo senedine dayalı icra takibi | kambiyo, icra, takip
+işe iade davası ve şartları | işe iade, feshin geçersizliği
+ecrimisil bedelinin hesaplanması | ecrimisil, işgal, taşınmaz
+mal rejiminin tasfiyesi | mal rejimi, edinilmiş mal, katılma
+sözleşmenin ifa edilmemesi ve dönme | ifa, dönme, sözleşme
+zamanaşımı def'i ve süreleri | zamanaşımı, süre, def'i
+
+# ---------- COMPLEX (15) ----------
+kat karşılığı inşaat sözleşmesinin feshi ve tazminat | kat karşılığı, inşaat, fesih
+haksız rekabet nedeniyle maddi manevi tazminat talebi | haksız rekabet, tazminat, ticari
+işçinin fazla mesai alacağının ispatı ve tanık | fazla mesai, ispat, tanık
+muvazaalı satış ve tapu iptali tescil davası | muvazaa, tapu iptali, tescil
+kooperatif üyeliğinden çıkarma kararının iptali | kooperatif, üyelik, iptal
+sigorta şirketinin rücu hakkı ve halefiyet | sigorta, rücu, halefiyet
+kredi sözleşmesinde kefilin sorumluluğu sınırı | kredi, kefil, sorumluluk
+markanın hükümsüzlüğü ve iltibas ihtimali | marka, hükümsüzlük, iltibas
+işverenin iş kazasından kaynaklanan sorumluluğu | iş kazası, işveren, sorumluluk
+tüketici kredisinde erken ödeme ve faiz iadesi | tüketici kredisi, erken ödeme, faiz
+apartman yöneticisinin hukuki sorumluluğu | kat mülkiyeti, yönetici, sorumluluk
+menfi tespit davasında ispat yükü | menfi tespit, ispat yükü, borç
+istinaf başvurusunun süresinde yapılmaması | istinaf, süre, başvuru
+manevi tazminatın belirlenmesinde ölçütler | manevi tazminat, ölçüt, takdir
+alacağın temliki ve borçluya ihbar | temlik, alacak, ihbar
+
+# ---------- EDGE CASES (10) ----------
+elektrik | elektrik
+tazminat | tazminat
+sözleşme feshi mi tazminat mı | fesih, tazminat
+2020 yılında satın alınan taşınmaz | taşınmaz, satış
+hakim kararı bozuldu ne olur | bozma, karar, temyiz
+avukat vekalet ücreti | vekalet ücreti, avukat
+faiz oranı ne kadar | faiz, oran
+dava açma süresi kaç gün | süre, dava, hak düşürücü
+bilirkişi raporu itiraz | bilirkişi, rapor, itiraz
+karar düzeltme yolu kapalı mı | karar düzeltme, kanun yolu

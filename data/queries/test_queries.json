@@ -1,0 +1,65 @@
+{
+  "description": "Test queries for the Turkish Legal RAG benchmark. Each item is a natural-language legal topic an attorney might ask about, with keywords expected to appear in relevant Yargıtay decisions.",
+  "queries": [
+    {
+      "id": "q1",
+      "query": "Kira sözleşmesinin haklı nedenle feshi ve tahliye",
+      "topic": "Kira hukuku",
+      "expected_keywords": ["kira", "fesih", "tahliye", "sözleşme"]
+    },
+    {
+      "id": "q2",
+      "query": "İşçinin haklı nedenle iş sözleşmesini feshi ve kıdem tazminatı",
+      "topic": "İş hukuku",
+      "expected_keywords": ["işçi", "kıdem tazminatı", "fesih", "iş sözleşmesi"]
+    },
+    {
+      "id": "q3",
+      "query": "Boşanma davasında maddi ve manevi tazminat şartları",
+      "topic": "Aile hukuku",
+      "expected_keywords": ["boşanma", "tazminat", "kusur", "manevi"]
+    },
+    {
+      "id": "q4",
+      "query": "Trafik kazası sonucu oluşan destekten yoksun kalma tazminatı",
+      "topic": "Tazminat hukuku",
+      "expected_keywords": ["trafik", "destekten yoksun kalma", "tazminat", "kaza"]
+    },
+    {
+      "id": "q5",
+      "query": "Taşınmaz satış vaadi sözleşmesinin geçerlilik şartları",
+      "topic": "Eşya hukuku",
+      "expected_keywords": ["taşınmaz", "satış vaadi", "sözleşme", "tapu"]
+    },
+    {
+      "id": "q6",
+      "query": "Ticari alacağın tahsili ve temerrüt faizi hesabı",
+      "topic": "Ticaret hukuku",
+      "expected_keywords": ["alacak", "temerrüt", "faiz", "ticari"]
+    },
+    {
+      "id": "q7",
+      "query": "Miras paylaşımında tenkis davası ve saklı pay",
+      "topic": "Miras hukuku",
+      "expected_keywords": ["miras", "tenkis", "saklı pay", "muris"]
+    },
+    {
+      "id": "q8",
+      "query": "Haksız fiil nedeniyle uğranılan zararın tazmini",
+      "topic": "Borçlar hukuku",
+      "expected_keywords": ["haksız fiil", "zarar", "tazmin", "kusur"]
+    },
+    {
+      "id": "q9",
+      "query": "Tüketici hakem heyeti kararına itiraz ve ayıplı mal",
+      "topic": "Tüketici hukuku",
+      "expected_keywords": ["tüketici", "ayıplı", "hakem heyeti", "itiraz"]
+    },
+    {
+      "id": "q10",
+      "query": "Kambiyo senedine dayalı icra takibine itiraz",
+      "topic": "İcra iflas hukuku",
+      "expected_keywords": ["kambiyo", "icra", "takip", "itiraz"]
+    }
+  ]
+}

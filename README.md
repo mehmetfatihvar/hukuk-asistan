@@ -131,6 +131,29 @@ python src/validate_semantic.py --skip-intra  # B & C only (no model load)
 
 These are diagnostic signals (⚠️/✅ hints), not hard pass/fail gates.
 
+### Boilerplate discovery
+
+`src/identify_boilerplate.py` finds procedural / template text (e.g.
+"Taraflar arasındaki davanın…", "…dosya incelendi gereği düşünüldü…") so it can
+be stripped in `03_preprocess.py`, leaving only content-bearing legal text:
+
+```bash
+python src/identify_boilerplate.py            # auto-mine + print seed patterns
+python src/identify_boilerplate.py --review    # interactive 30-sample Y/N review
+python src/identify_boilerplate.py --show      # print a stratified sample only
+```
+
+- **Automatic mining** normalises away case-specific tokens (dates, case
+  numbers `<NO>`, article numbers `<MADDE>`, digits `<NUM>`) then ranks
+  sentences by how many **distinct decisions** they appear in — text shared by
+  many decisions is boilerplate.
+- **Manual review** draws a stratified sample (even across sections) and asks
+  "Is this boilerplate? (y/N)" plus a category (procedural / transition /
+  repetitive / content).
+
+Results (seed + mined + reviewed patterns) are written to
+`data/processed/boilerplate_patterns.json`.
+
 ## Search from the CLI
 
 ```bash

@@ -155,15 +155,25 @@ Results (seed + mined + reviewed patterns) are written to
 `data/processed/boilerplate_patterns.json`.
 
 **Closed loop:** on its next run `03_preprocess.py` automatically loads that
-JSON and strips the confirmed patterns (placeholder tokens like `<NO>`/`<DATE>`
-expand back to a value regex, so one mined pattern matches every case), then
-re-chunk with `04`. The full cycle:
+JSON and strips the **safe** patterns, then re-chunk with `04`. The full cycle:
 
 ```
 03_preprocess → 04_smart_chunking → identify_boilerplate (writes JSON)
              ↑                                              │
              └──────────── re-run strips patterns ──────────┘
 ```
+
+**What 03 actually strips (safe by default):**
+- always-on formatting artefacts (markdown `**`, the `"İçtihat Metni"` label);
+- hand-curated `seed_patterns` (procedural phrases like "…temyiz edilmiştir");
+- human-confirmed `reviewed` items from `--review`.
+
+**What it does NOT strip by default:** the frequency-`mined_patterns`. Frequency
+alone is not boilerplate — mining also surfaces repeated legal **doctrine**
+(established case-law quoted across many decisions), which is content a lawyer
+wants to find. Auto-removing it would gut the corpus. Review the mined list and
+promote only the genuinely procedural ones into `SEED_PATTERNS`; set
+`APPLY_MINED_PATTERNS=1` only if you accept the risk.
 
 ## Search from the CLI
 

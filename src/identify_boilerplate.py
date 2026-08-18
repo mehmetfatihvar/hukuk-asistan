@@ -95,6 +95,19 @@ SEED_PATTERNS: list[dict] = [
      "example": "...gerekçeli kararın tebliği..."},
     {"category": "procedural", "regex": r"usul\s+ve\s+yasaya\s+uygun",
      "example": "...usul ve yasaya uygun..."},
+    # --- Added from real-data review (safe, procedural only) --------------- #
+    {"category": "procedural", "regex": r"yerel\s+mahkemece\s+verilen\s+hüküm\s+temyiz\s+edilmekle",
+     "example": "Yerel mahkemece verilen hüküm temyiz edilmekle, dosya..."},
+    {"category": "procedural", "regex": r"vekil(i|ince)?\s+(tarafından\s+)?temyiz\s+ed(ilmiştir|ilmekle|en)",
+     "example": "...vekili tarafından temyiz edilmiştir."},
+    {"category": "procedural", "regex": r"karar(ı|ını)?[,\s]+davac[ıi]\s+vekili\s+temyiz\s+etmiştir",
+     "example": "Kararı, davacı vekili temyiz etmiştir."},
+    {"category": "procedural", "regex": r"yargıtay\s+cumhuriyet\s+başsavcılığına\s+tevdi",
+     "example": "...Yargıtay Cumhuriyet Başsavcılığına TEVDİİNE..."},
+    {"category": "procedural", "regex": r"temyiz\s+itirazları\s+yerinde\s+ol(duğundan|masından)",
+     "example": "...temyiz itirazları yerinde olduğundan..."},
+    {"category": "procedural", "regex": r"mahkemece\s+davanın\s+kabulüne\s+karar\s+veril",
+     "example": "Mahkemece davanın kabulüne karar verilmiş..."},
 ]
 
 
@@ -281,6 +294,12 @@ def main() -> None:
         print("  No sentence met the threshold — try a lower --min-docs.")
     for c in mined:
         print(f"  [{c['doc_count']:>6} docs | {c['doc_coverage']:6.2%}]  {c['example'][:90]}")
+    print("\n  ⚠️  CAUTION: frequency alone does NOT mean boilerplate. This list")
+    print("     mixes procedural text (safe to remove) with repeated legal")
+    print("     DOCTRINE / case-law quotations (content — must be KEPT). These")
+    print("     mined patterns are therefore NOT auto-applied by 03_preprocess")
+    print("     unless APPLY_MINED_PATTERNS=1. Review them (or use --review) and")
+    print("     promote only the procedural ones into SEED_PATTERNS.")
 
     # Consolidated output.
     out = {

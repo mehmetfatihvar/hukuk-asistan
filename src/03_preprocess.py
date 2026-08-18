@@ -60,11 +60,36 @@ _BOILERPLATE_RE = re.compile(
 
 _WHITESPACE_RE = re.compile(r"\s+")
 
+# Always-on formatting-artifact cleanup, independent of the learned patterns.
+# The source dataset leaks markdown emphasis (**), a source label
+# ("İçtihat Metni") and stray decision-number metadata into the text — pure
+# noise that is safe to strip everywhere.
+_ARTIFACT_RES: list[re.Pattern] = [
+    re.compile(r"\*+"),                                    # markdown ** bold
+    re.compile(r'"?\s*İçtihat\s+Metni\s*"?', re.IGNORECASE),  # source label
+]
+
 
 # --------------------------------------------------------------------------- #
 # Learned boilerplate patterns (from identify_boilerplate.py)
 # --------------------------------------------------------------------------- #
 BOILERPLATE_JSON = config.PROCESSED_DIR / "boilerplate_patterns.json"
+
+# Forward normalisation (value -> placeholder), mirror of identify_boilerplate,
+# used to turn a human-confirmed raw review sentence into a matching regex.
+_FORWARD_NORM: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"\d{1,2}[.\-/]\d{1,2}[.\-/]\d{2,4}"), "<DATE>"),
+    (re.compile(r"\b\d{4}\s*/\s*\d+\b"), "<NO>"),
+    (re.compile(r"\bm(?:adde|\.)\s*\d+\b", re.IGNORECASE), "<MADDE>"),
+    (re.compile(r"\b\d+\b"), "<NUM>"),
+]
+
+
+def _normalize_raw(sent: str) -> str:
+    s = sent.strip().casefold()
+    for pat, repl in _FORWARD_NORM:
+        s = pat.sub(repl, s)
+    return re.sub(r"\s+", " ", s).strip()
 
 # Reverse of the normalisation used in identify_boilerplate.py: turn the
 # placeholder tokens back into the regex that matches the case-specific values.
@@ -116,6 +141,7 @@ def load_boilerplate_patterns(path=BOILERPLATE_JSON) -> list[re.Pattern]:
     except (json.JSONDecodeError, OSError):
         return patterns
 
+    # 1. Hand-curated seed patterns — always safe to apply.
     for seed in data.get("seed_patterns", []):
         rx = seed.get("regex")
         if rx:
@@ -123,12 +149,25 @@ def load_boilerplate_patterns(path=BOILERPLATE_JSON) -> list[re.Pattern]:
                 patterns.append(re.compile(rx, re.IGNORECASE))
             except re.error:
                 pass
-    for mined in data.get("mined_patterns", []):
-        norm = mined.get("pattern")
-        if norm:
-            rx = _pattern_to_regex(norm)
+
+    # 2. Human-confirmed review items (is_boilerplate == True) — always applied.
+    for item in data.get("reviewed", []):
+        if item.get("is_boilerplate") and item.get("first_sentence"):
+            raw = " ".join(item["first_sentence"])
+            rx = _pattern_to_regex(_normalize_raw(raw))
             if rx is not None:
                 patterns.append(rx)
+
+    # 3. Frequency-mined candidates — applied ONLY when explicitly enabled,
+    #    because mining also surfaces repeated legal doctrine (content, not
+    #    boilerplate). See config.APPLY_MINED_PATTERNS.
+    if config.APPLY_MINED_PATTERNS:
+        for mined in data.get("mined_patterns", []):
+            norm = mined.get("pattern")
+            if norm:
+                rx = _pattern_to_regex(norm)
+                if rx is not None:
+                    patterns.append(rx)
     return patterns
 
 
@@ -142,9 +181,12 @@ def clean_text(text: str) -> str:
         return ""
     # 1. Remove boilerplate header lines (needs original line breaks).
     text = _BOILERPLATE_RE.sub(" ", text)
-    # 2. Normalise whitespace first so learned (single-space) patterns match.
+    # 2. Strip formatting artefacts (markdown, source label) everywhere.
+    for pat in _ARTIFACT_RES:
+        text = pat.sub(" ", text)
+    # 3. Normalise whitespace first so learned (single-space) patterns match.
     text = _WHITESPACE_RE.sub(" ", text)
-    # 3. Remove learned boilerplate sentences/phrases.
+    # 4. Remove learned boilerplate sentences/phrases (curated + confirmed).
     for pat in _BP_PATTERNS:
         text = pat.sub(" ", text)
     # 4. Tidy orphan sentence terminators left where a sentence was removed

@@ -113,6 +113,14 @@ MAX_ATOMIC_CHARS: int = int(os.getenv("MAX_ATOMIC_CHARS", "4000"))
 # redundancy and embedding cost). Set to "0" to keep duplicates.
 DEDUP_CHUNKS: bool = os.getenv("DEDUP_CHUNKS", "1") == "1"
 
+# Whether 03_preprocess.py auto-applies the FREQUENCY-MINED patterns from
+# identify_boilerplate.py. OFF by default: frequency mining also surfaces
+# repeated legal *doctrine* (established case-law quoted across many
+# decisions), which is content, not boilerplate — stripping it would gut the
+# corpus. Only hand-curated seed patterns and human-confirmed review items are
+# applied unless you set this to "1" after reviewing the mined list.
+APPLY_MINED_PATTERNS: bool = os.getenv("APPLY_MINED_PATTERNS", "0") == "1"
+
 # Canonical decision sections.
 SECTION_OYAL = "OYAL"        # facts (olaylar)
 SECTION_KANUN = "KANUN"      # legal references

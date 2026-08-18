@@ -215,8 +215,14 @@ def check_invariants(rows: list[dict]) -> list[str]:
             problems.append(f"chunk {cid}: invalid section '{section}'")
         if length != len(text):
             problems.append(f"chunk {cid}: length column {length} != len(text) {len(text)}")
-        if is_atomic != (section in config.ATOMIC_SECTIONS):
-            problems.append(f"chunk {cid}: is_atomic={is_atomic} inconsistent with section {section}")
+        # Atomicity rule (post MAX_ATOMIC_CHARS): the atomic flag may only be set
+        # on KANUN/KARAR, and an atomic chunk must respect the atomic cap. An
+        # oversize atomic section is legitimately split → is_atomic=False, so a
+        # KANUN/KARAR chunk with is_atomic=False is allowed.
+        if is_atomic and section not in config.ATOMIC_SECTIONS:
+            problems.append(f"chunk {cid}: is_atomic=True on non-atomic section {section}")
+        if is_atomic and length > config.MAX_ATOMIC_CHARS:
+            problems.append(f"chunk {cid}: atomic chunk over MAX_ATOMIC_CHARS ({length})")
         if not is_atomic and length > config.CHUNK_SIZE:
             problems.append(f"chunk {cid}: split chunk over CHUNK_SIZE ({length})")
 
@@ -267,36 +273,42 @@ def validate_data(sample: int = 0) -> bool:
               "not use these headers; review _SECTION_VARIANTS.")
 
     # --- word coverage vs cleaned source (content-loss check) ---
+    # We RE-CHUNK each sampled decision independently (chunk_decision on its own
+    # clean text) and check its own chunks cover its words. This isolates
+    # "does the chunker drop content" from the global DEDUP_CHUNKS step, which
+    # intentionally drops cross-document duplicates — reading coverage straight
+    # from chunks.csv would mis-count deduped decisions as content loss.
     if config.CLEAN_CSV.exists():
         clean = pd.read_csv(config.CLEAN_CSV)
         clean["id"] = clean["id"].astype(str)
         clean["text"] = clean["text"].fillna("").astype(str)
-        ids = list(by_doc.keys())
+        clean_by_id = dict(zip(clean["id"], clean["text"]))
+        ids = list(clean_by_id.keys())
         random.seed(42)
         pick = random.sample(ids, min(len(ids), 200))
-        chunk_words_by_doc: dict[str, set[str]] = {}
-        for r in rows:
-            d = str(r["original_doc_id"])
-            if d in set(pick):
-                chunk_words_by_doc.setdefault(d, set()).update(_words(str(r["text"])))
-        clean_by_id = dict(zip(clean["id"], clean["text"]))
         coverages = []
         for d in pick:
-            orig = _words(clean_by_id.get(d, ""))
+            orig_text = clean_by_id.get(d, "")
+            orig = _words(orig_text)
             if not orig:
                 continue
-            covered = len(orig & chunk_words_by_doc.get(d, set())) / len(orig)
-            coverages.append(covered)
+            own_words: set[str] = set()
+            for _sec, ctext, _atomic in chunk_decision(orig_text):
+                own_words.update(_words(ctext))
+            coverages.append(len(orig & own_words) / len(orig))
         if coverages:
             avg_cov = sum(coverages) / len(coverages)
             worst = min(coverages)
-            print(f"\nContent preservation (sampled {len(coverages)} decisions):")
+            print(f"\nContent preservation (re-chunked {len(coverages)} decisions, "
+                  "dedup-independent):")
             print(f"  mean word coverage        : {avg_cov:.3f}")
             print(f"  worst word coverage       : {worst:.3f}")
             if avg_cov < 0.98:
-                print("  ⚠️  Some content appears to be lost during chunking.")
+                print("  ⚠️  The chunker itself is dropping content (not dedup) — "
+                      "check MIN_CHUNK_CHARS and chunk_section.")
             else:
-                print("  ✅ Effectively no content lost.")
+                print("  ✅ Chunker preserves content (global dedup drops "
+                      "cross-document duplicates by design).")
 
     # --- optional manual-inspection dump ---
     if sample > 0 and config.CLEAN_CSV.exists():

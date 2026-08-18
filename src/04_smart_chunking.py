@@ -147,19 +147,25 @@ def chunk_decision(text: str) -> list[tuple[str, str, bool]]:
     Chunk one decision.
 
     Returns a list of (section, chunk_text, is_atomic) tuples in document
-    order. Atomic sections (KANUN, KARAR) yield exactly one chunk.
+    order. Atomic sections (KANUN, KARAR) yield one chunk unless they exceed
+    MAX_ATOMIC_CHARS, in which case they are split (a huge "atomic" chunk is
+    useless for embedding). Split chunks shorter than MIN_CHUNK_CHARS are
+    dropped; atomic chunks are exempt so a short ruling still survives.
     """
     out: list[tuple[str, str, bool]] = []
     for section, sec_text in extract_sections(text).items():
         sec_text = sec_text.strip()
         if not sec_text:
             continue
-        if section in config.ATOMIC_SECTIONS:
+        atomic = section in config.ATOMIC_SECTIONS
+        if atomic and len(sec_text) <= config.MAX_ATOMIC_CHARS:
             out.append((section, sec_text, True))
         else:
+            # Non-atomic, or an oversize atomic section that must be split.
             for piece in chunk_section(sec_text, config.CHUNK_SIZE, config.CHUNK_OVERLAP):
-                if piece.strip():
-                    out.append((section, piece.strip(), False))
+                piece = piece.strip()
+                if len(piece) >= config.MIN_CHUNK_CHARS:
+                    out.append((section, piece, False))
     return out
 
 
@@ -181,10 +187,20 @@ def main() -> None:
     df["text"] = df["text"].fillna("").astype(str)
 
     rows: list[dict] = []
+    seen: set[str] = set()
+    n_dupes = 0
     chunk_id = 0
     for _, r in tqdm(df.iterrows(), total=len(df), desc="Chunking", unit="doc"):
         doc_id = r.get("id", "")
         for section, piece, is_atomic in chunk_decision(r["text"]):
+            # Drop exact-duplicate chunk text across the corpus (boilerplate
+            # that survived preprocessing repeats verbatim in many decisions).
+            if config.DEDUP_CHUNKS:
+                key = piece.casefold()
+                if key in seen:
+                    n_dupes += 1
+                    continue
+                seen.add(key)
             rows.append(
                 {
                     "chunk_id": chunk_id,
@@ -202,6 +218,8 @@ def main() -> None:
         columns=["chunk_id", "text", "section", "original_doc_id", "length", "is_atomic"],
     )
     chunks.to_csv(config.CHUNKS_CSV, index=False)
+    if config.DEDUP_CHUNKS:
+        print(f"Deduplication: dropped {n_dupes:,} exact-duplicate chunks.")
 
     # ---- Metrics --------------------------------------------------------- #
     n_docs = len(df)

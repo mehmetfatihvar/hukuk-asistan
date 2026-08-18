@@ -102,6 +102,17 @@ CHUNK_OVERLAP: int = int(os.getenv("CHUNK_OVERLAP", "100"))
 # Minimum length of a raw decision to keep during preprocessing.
 MIN_TEXT_CHARS: int = int(os.getenv("MIN_TEXT_CHARS", "100"))
 
+# Drop split chunks shorter than this (kills 4-char junk fragments). Atomic
+# chunks (KARAR/KANUN) are exempt so a short but meaningful ruling survives.
+MIN_CHUNK_CHARS: int = int(os.getenv("MIN_CHUNK_CHARS", "30"))
+# Safety cap for ATOMIC sections: an atomic section longer than this is split
+# anyway (a 1.25M-char "atomic" chunk is useless — the embedder only reads the
+# first few hundred tokens). Keeps KANUN/KARAR whole in the normal case.
+MAX_ATOMIC_CHARS: int = int(os.getenv("MAX_ATOMIC_CHARS", "4000"))
+# Drop exact-duplicate chunk texts across the corpus (cuts boilerplate
+# redundancy and embedding cost). Set to "0" to keep duplicates.
+DEDUP_CHUNKS: bool = os.getenv("DEDUP_CHUNKS", "1") == "1"
+
 # Canonical decision sections.
 SECTION_OYAL = "OYAL"        # facts (olaylar)
 SECTION_KANUN = "KANUN"      # legal references

@@ -219,6 +219,9 @@ All knobs live in `src/config.py`, overridable via env / `.env`:
 | `SAMPLE_SIZE` | `100000` | How many decisions to download |
 | `ST_MODEL_NAME` | `paraphrase-multilingual-MiniLM-L12-v2` | Embedding model (see note below) |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | `1000` / `100` | Chunk sizing (chars) |
+| `MAX_ATOMIC_CHARS` | `4000` | Atomic KANUN/KARAR longer than this is split anyway |
+| `MIN_CHUNK_CHARS` | `30` | Drop split chunks shorter than this (kills junk) |
+| `DEDUP_CHUNKS` | `1` | Drop exact-duplicate chunk texts across the corpus |
 | `TOP_K` | `5` | Results returned per query |
 | `SEARCH_CANDIDATES` | `30` | Candidates pulled before reranking |
 | `BENCHMARK_REL_THRESHOLD` | `0.35` | Cosine floor for the benchmark's relevance label |

@@ -141,32 +141,42 @@ def metric_section_separability(df, emb: np.ndarray, per_section: int) -> None:
         print("  (need >= 2 populated sections)")
         return
 
-    within_scores = []
+    # Build one sampled, normalised matrix with section labels so within- and
+    # cross-section similarities are measured the SAME way (both pairwise) —
+    # comparing pairwise-within against centroid-cross (the old approach) was
+    # apples-to-oranges and understated separability.
+    labels: list[str] = []
+    vecs: list[np.ndarray] = []
     for s, idxs in sample_idx.items():
-        within_scores.append((s, _mean_pairwise_cosine(emb[idxs])))
+        labels.extend([s] * len(idxs))
+        vecs.append(emb[idxs])
+    mat = _normalize(np.vstack(vecs))
+    lab = np.array(labels)
+    sim = mat @ mat.T
+    n = len(lab)
+    iu, ju = np.triu_indices(n, k=1)
+    same = lab[iu] == lab[ju]
+    pair_sims = sim[iu, ju]
 
-    # Cross-section: mean cosine between centroids of different sections.
-    centroids = {s: _normalize(emb[idxs].mean(axis=0, keepdims=True))[0]
-                 for s, idxs in sample_idx.items()}
-    cross = []
-    labels = list(centroids)
-    for i in range(len(labels)):
-        for j in range(i + 1, len(labels)):
-            cross.append(float(centroids[labels[i]] @ centroids[labels[j]]))
-
+    # Per-section within similarity (for the breakdown table).
     print("  within-section mean cosine:")
-    for s, sc in within_scores:
-        print(f"    {s:<10}: {sc:.3f}")
-    mean_within = float(np.nanmean([sc for _, sc in within_scores]))
-    mean_cross = float(np.mean(cross)) if cross else float("nan")
+    for s in sample_idx:
+        m = same & (lab[iu] == s)
+        if m.any():
+            print(f"    {s:<10}: {pair_sims[m].mean():.3f}")
+
+    mean_within = float(pair_sims[same].mean()) if same.any() else float("nan")
+    mean_cross = float(pair_sims[~same].mean()) if (~same).any() else float("nan")
+    margin = mean_within - mean_cross
     print(f"  mean within-section    : {mean_within:.3f}")
     print(f"  mean cross-section     : {mean_cross:.3f}")
-    print(f"  separability margin    : {mean_within - mean_cross:+.3f}")
-    if mean_within - mean_cross > 0.03:
+    print(f"  separability margin    : {margin:+.3f}  (pairwise, both sides)")
+    if margin > 0.03:
         print("  ✅ Sections are semantically separable (labels carry signal).")
     else:
         print("  ⚠️  Sections barely separable — section-weighted reranking may add "
-              "little; check section detection quality.")
+              "little; likely because boilerplate dominates (see metric C) or "
+              "section detection is weak.")
 
 
 # --------------------------------------------------------------------------- #

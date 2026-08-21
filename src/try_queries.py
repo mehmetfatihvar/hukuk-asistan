@@ -47,15 +47,35 @@ DEFAULT_QUERIES = [
 ]
 
 
+def _tokens(text: str, n: int = 50) -> set[str]:
+    return set(str(text).lower().split()[:n])
+
+
+def _near_duplicate(a: dict, b: dict, thresh: float = 0.6) -> bool:
+    """Token-Jaccard on the first ~50 words — catches the same doctrine quoted
+    verbatim in different decisions."""
+    ta, tb = _tokens(a["text"]), _tokens(b["text"])
+    if not ta or not tb:
+        return False
+    return len(ta & tb) / len(ta | tb) >= thresh
+
+
 def run_query(engine, query: str, n_decisions: int, snippet: int) -> None:
-    # Pull more chunks than needed, then collapse to distinct decisions.
-    chunks = engine.search(query, top_k=max(40, n_decisions * 8))
-    by_decision: dict[str, dict] = {}
+    # Pull more chunks than needed, then collapse to distinct decisions and
+    # drop near-duplicate texts (same doctrine repeated across decisions).
+    chunks = engine.search(query, top_k=max(60, n_decisions * 12))
+    seen_docs: set[str] = set()
+    top: list[dict] = []
     for r in chunks:
         d = r["original_doc_id"]
-        if d not in by_decision:
-            by_decision[d] = r
-    top = list(by_decision.values())[:n_decisions]
+        if d in seen_docs:
+            continue
+        if any(_near_duplicate(r, kept) for kept in top):
+            continue
+        seen_docs.add(d)
+        top.append(r)
+        if len(top) >= n_decisions:
+            break
 
     print("\n" + "=" * 78)
     print(f"SORGU: {query}")

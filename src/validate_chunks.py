@@ -123,6 +123,18 @@ _FIXTURES = [
         "expect": {"OYAL"},
     },
     {
+        "name": "headerless + transition -> OYAL/GEREKÇE (cue detector)",
+        "text": ("Davacı dava dilekçesi sunmuştur. Gereği görüşülüp düşünüldü; "
+                 "toplanan deliller yeterli olup iddia ispatlanmıştır."),
+        "expect": {"OYAL", "GEREKÇE"},
+    },
+    {
+        "name": "headerless + decree -> OYAL/KARAR (positional detector)",
+        "text": ("Davacı taşınmazın tescilini istemiştir. "
+                 "Mahkemece davanın reddine karar verilmiştir."),
+        "expect": {"OYAL", "KARAR"},
+    },
+    {
         "name": "long GEREKÇE forces split with overlap",
         "text": "GEREKÇE: " + _LONG,
         "expect": {"GEREKÇE"},

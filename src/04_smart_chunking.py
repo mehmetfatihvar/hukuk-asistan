@@ -42,14 +42,27 @@ import config
 # corpus. Matching is CASE-SENSITIVE (uppercase): real headers are upper case,
 # while the same words in running text are lower case, so this avoids splitting
 # mid-sentence on a common word like "karar".
+# Variants were expanded after inspecting the real corpus (inspect_sections.py):
+# the dataset mostly uses SONUÇ/HÜKÜM(LER)/DAVA and the transition phrase
+# "GEREĞİ GÖRÜŞÜLÜP DÜŞÜNÜLDÜ" rather than OYAL/KANUN/KARAR/GEREKÇE.
 _SECTION_VARIANTS: dict[str, list[str]] = {
-    config.SECTION_OYAL: ["OLAYLAR", "OLAY", "OYAL", "MADDİ OLAY", "MADDI OLAY", "VAKIALAR"],
+    config.SECTION_OYAL: [
+        "OLAYLAR", "OLAY", "OYAL", "MADDİ OLAY", "MADDI OLAY", "VAKIALAR",
+        "DAVA", "DAVA TÜRÜ", "İDDİA", "İSTEM", "DAVA VE KARAR",
+    ],
     config.SECTION_KANUN: [
         "KANUN", "İLGİLİ KANUN", "ILGILI KANUN", "YASAL DAYANAK",
         "İLGİLİ MEVZUAT", "ILGILI MEVZUAT", "KANUN MADDESİ", "MEVZUAT",
     ],
-    config.SECTION_KARAR: ["KARAR", "HÜKÜM", "HUKUM", "SONUÇ", "SONUC", "HÜKÜM VE SONUÇ"],
-    config.SECTION_GEREKCE: ["GEREKÇE", "GEREKCE", "GEREKÇESİ", "DEĞERLENDİRME", "DEGERLENDIRME", "İNCELEME"],
+    config.SECTION_KARAR: [
+        "KARAR", "HÜKÜM", "HÜKÜMLER", "HUKUM", "SONUÇ", "SONUC",
+        "HÜKÜM VE SONUÇ", "SONUÇ VE KARAR",
+    ],
+    config.SECTION_GEREKCE: [
+        "GEREKÇE", "GEREKCE", "GEREKÇESİ", "DEĞERLENDİRME", "DEGERLENDIRME",
+        "İNCELEME", "GEREĞİ GÖRÜŞÜLÜP DÜŞÜNÜLDÜ", "GEREĞİ DÜŞÜNÜLDÜ",
+        "GEREĞİ GÖRÜŞÜLDÜ",
+    ],
 }
 
 # Map every variant back to its canonical section, longest-first so that
@@ -68,43 +81,147 @@ _MARKER_RE = re.compile(
 
 _SENTENCE_RE = re.compile(r"(?<=[.!?…])\s+")
 
+# --- Cue / positional detection (for decisions that carry no header) ------- #
+# The transition phrase that separates the procedural preamble + facts from the
+# court's own reasoning. Case-INSENSITIVE, because it is often written in mixed
+# case ("Gereği görüşülüp düşünüldü;").
+_TRANSITION_RE = re.compile(
+    r"gere[ğg]i\s+(?:g[öo]r[üu][şs][üu]l[üu]p\s+)?(?:d[üu][şs][üu]n[üu]ld[üu]|g[öo]r[üu][şs][üu]ld[üu])",
+    re.IGNORECASE,
+)
+# STRONG decree cues that mark the final ruling. Deliberately excludes bare
+# "karar veril…", which appears in ~99.7% of decisions (including narrative) and
+# so cannot discriminate the decree — using it would mislabel facts as KARAR.
+_RULING_TAIL_RE = re.compile(
+    r"(onanmasına|bozulmasına|bozularak|kabul[üu]ne|reddine|tesciline|"
+    r"tahliyesine|iptaline|oybirli[ğg]iyle|oy\s*ço[ğg]unlu[ğg]uyla|"
+    r"esastan\s+red|hükm[üu]n\s+(?:onan|bozul))",
+    re.IGNORECASE,
+)
+
 
 def _canonical_for(fragment: str) -> str | None:
-    """Return the canonical section if `fragment` starts with a known marker."""
-    head = fragment[:40].upper()
+    """
+    Return the canonical section if `fragment` starts with a known marker.
+
+    The marker must end on a word boundary, so "DAVACI" (plaintiff) does NOT
+    match the "DAVA" (claim) header, and "KARARI" does not match "KARAR".
+    """
+    head = fragment[:48].upper()
     for variant in _ALL_VARIANTS:
         if head.startswith(variant):
-            return _VARIANT_TO_SECTION[variant]
+            after = head[len(variant):len(variant) + 1]
+            if not after or not after.isalpha():
+                return _VARIANT_TO_SECTION[variant]
     return None
 
 
-def extract_sections(text: str) -> dict[str, str]:
-    """
-    Split a decision into a dict {section: text}, in order of appearance.
-
-    Handles header variations (OYAL:, OYAL , OLAYLAR, ...). If a section
-    appears more than once its parts are concatenated. When no known marker is
-    present the whole text is returned under the GENEL (general) section.
-    """
-    if not isinstance(text, str) or not text.strip():
-        return {}
-
+def _header_sections(text: str) -> dict[str, str]:
+    """Header-based split. Returns {} (no non-GENEL header found) or the split."""
     fragments = [f.strip() for f in _MARKER_RE.split(text) if f and f.strip()]
-
     sections: dict[str, str] = {}
     matched_any = False
     for frag in fragments:
         canon = _canonical_for(frag)
         if canon is None:
-            # Leading text before the first recognised header -> facts (OYAL).
             canon = config.SECTION_OYAL if not sections else config.SECTION_GENERAL
         else:
             matched_any = True
         sections[canon] = (sections.get(canon, "") + " " + frag).strip()
+    return sections if matched_any else {}
 
-    if not matched_any:
-        return {config.SECTION_GENERAL: text.strip()}
+
+def _find_ruling_tail_start(text: str) -> int | None:
+    """Index where the final ruling begins (start of that sentence), or None."""
+    half = len(text) // 2
+    pos = None
+    for m in _RULING_TAIL_RE.finditer(text):
+        if m.start() >= half:
+            pos = m.start()
+            break
+    if pos is None:
+        matches = list(_RULING_TAIL_RE.finditer(text))
+        if matches:
+            pos = matches[-1].start()
+    if pos is None:
+        return None
+    prev = text.rfind(".", 0, pos)
+    return prev + 1 if prev != -1 else 0
+
+
+def _cue_positional_sections(text: str) -> dict[str, str]:
+    """
+    Section a header-less decision by cue + position:
+      - with a "gereği görüşülüp düşünüldü" transition: before -> facts (OYAL),
+        after -> reasoning (GEREKÇE) (the ruling is carved out afterwards);
+      - without a transition: only structure the text when a STRONG decree cue
+        marks a ruling tail (front -> OYAL, tail -> KARAR);
+      - if neither is present, no structure was found -> GENEL (honest).
+    """
+    m = _TRANSITION_RE.search(text)
+    if m:
+        out: dict[str, str] = {}
+        facts = text[:m.start()].strip()
+        rest = text[m.end():].strip()
+        if facts:
+            out[config.SECTION_OYAL] = facts
+        if rest:
+            out[config.SECTION_GEREKCE] = rest
+        return out or {config.SECTION_GENERAL: text.strip()}
+
+    rs = _find_ruling_tail_start(text)
+    if rs and rs > 0:
+        return {
+            config.SECTION_OYAL: text[:rs].strip(),
+            config.SECTION_KARAR: text[rs:].strip(),
+        }
+    return {config.SECTION_GENERAL: text.strip()}
+
+
+def _carve_ruling(sections: dict[str, str]) -> dict[str, str]:
+    """
+    If no explicit KARAR section exists, try to split the final decree out of
+    the last narrative section so the ruling gets its (high) rerank weight.
+    """
+    if config.SECTION_KARAR in sections or not sections:
+        return sections
+    last = list(sections)[-1]
+    if last == config.SECTION_KANUN:
+        return sections
+    txt = sections[last]
+    rs = _find_ruling_tail_start(txt)
+    if rs and rs > 0:
+        head, ruling = txt[:rs].strip(), txt[rs:].strip()
+        if ruling:
+            if head:
+                sections[last] = head
+            else:
+                del sections[last]
+            sections[config.SECTION_KARAR] = ruling
+    elif len(txt) < 400 and _RULING_TAIL_RE.search(txt[-160:]):
+        # Terse single-sentence decree ("...hükmün ONANMASINA ... karar verildi").
+        del sections[last]
+        sections[config.SECTION_KARAR] = txt
     return sections
+
+
+def extract_sections(text: str) -> dict[str, str]:
+    """
+    Split a decision into {section: text}.
+
+    Hybrid strategy:
+      1. If explicit uppercase headers are present, split on them.
+      2. Otherwise fall back to cue/positional detection (transition phrase +
+         ruling-tail cues), so header-less decisions are still sectioned
+         instead of collapsing into GENEL.
+      3. Either way, carve the final ruling into KARAR when it isn't already a
+         section, so the decree keeps its rerank weight.
+    """
+    if not isinstance(text, str) or not text.strip():
+        return {}
+    headers = _header_sections(text)
+    sections = headers if headers else _cue_positional_sections(text)
+    return _carve_ruling(sections)
 
 
 # --------------------------------------------------------------------------- #

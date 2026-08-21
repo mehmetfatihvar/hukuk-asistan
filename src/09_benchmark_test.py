@@ -91,11 +91,18 @@ def main() -> None:
     print(f"{'#':>3}  {'query':<45}{'ms':>6}{'acc':>7}")
     print("=" * 72)
 
+    plain_accuracies: list[float] = []  # accuracy WITHOUT section reranking
+
     for i, item in enumerate(queries, 1):
         t0 = time.perf_counter()
         results = engine.search(item["query"], config.TOP_K)
         latency_ms = (time.perf_counter() - t0) * 1000
         latencies.append(latency_ms)
+
+        # Ablation: same query without section-weighted reranking.
+        plain = engine.search(item["query"], config.TOP_K, rerank=False)
+        plain_rel = sum(1 for r in plain if is_relevant(r, item["keywords"]))
+        plain_accuracies.append(plain_rel / (len(plain) or 1))
 
         labelled = []
         for r in results:
@@ -130,9 +137,13 @@ def main() -> None:
         print(f"{i:>3}  {item['query'][:44]:<45}{latency_ms:>6.0f}{q_acc:>7.2f}")
 
     # ---- Aggregate ------------------------------------------------------- #
+    acc_rr = statistics.mean(accuracies) if accuracies else 0.0
+    acc_plain = statistics.mean(plain_accuracies) if plain_accuracies else 0.0
     report = {
         "total_queries": len(queries),
-        "accuracy": round(statistics.mean(accuracies), 3) if accuracies else 0.0,
+        "accuracy": round(acc_rr, 3),
+        "accuracy_no_rerank": round(acc_plain, 3),
+        "rerank_delta": round(acc_rr - acc_plain, 3),
         "false_positive_rate": round(statistics.mean(fp_rates), 3) if fp_rates else 0.0,
         "avg_similarity": round(statistics.mean(all_sims), 3) if all_sims else 0.0,
         "latency_ms_mean": round(statistics.mean(latencies), 1) if latencies else 0.0,
@@ -142,7 +153,10 @@ def main() -> None:
     print("=" * 72)
     print("AGGREGATE")
     print(f"  total queries        : {report['total_queries']}")
-    print(f"  accuracy             : {report['accuracy']:.2%}")
+    print(f"  accuracy (rerank)    : {report['accuracy']:.2%}")
+    print(f"  accuracy (no rerank) : {report['accuracy_no_rerank']:.2%}")
+    print(f"  rerank delta         : {report['rerank_delta']:+.2%}  "
+          f"({'reranking helps' if report['rerank_delta'] > 0 else 'reranking neutral/hurts'})")
     print(f"  false positive rate  : {report['false_positive_rate']:.2%}")
     print(f"  avg similarity       : {report['avg_similarity']:.3f}")
     print(f"  latency mean (ms)    : {report['latency_ms_mean']}")

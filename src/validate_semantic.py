@@ -174,9 +174,11 @@ def metric_section_separability(df, emb: np.ndarray, per_section: int) -> None:
     if margin > 0.03:
         print("  ✅ Sections are semantically separable (labels carry signal).")
     else:
-        print("  ⚠️  Sections barely separable — section-weighted reranking may add "
-              "little; likely because boilerplate dominates (see metric C) or "
-              "section detection is weak.")
+        print("  ⚠️  Low separability: cross-section similarity is inflated by "
+              "repeated legal language that cuts across sections (see metric C's "
+              "redundancy). Turkish legal text is homogeneous, so section-weighted "
+              "reranking is a minor factor — measure its real effect with the "
+              "rerank ablation in 09_benchmark_test.py rather than this metric.")
 
 
 # --------------------------------------------------------------------------- #

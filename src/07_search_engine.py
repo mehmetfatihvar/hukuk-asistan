@@ -99,10 +99,15 @@ class SearchEngine:
         """
         return max(0.0, min(1.0, 1.0 - sq_dist / 2.0))
 
-    def rerank(self, results: list[dict]) -> list[dict]:
-        """Apply section weights and sort by final score (descending)."""
+    def rerank(self, results: list[dict], apply_weights: bool = True) -> list[dict]:
+        """
+        Sort results by final score. With `apply_weights` (default) the score is
+        similarity × section weight; without it the section weight is 1.0, i.e.
+        pure semantic ranking — used by the benchmark to measure whether
+        section-weighted reranking actually helps.
+        """
         for r in results:
-            weight = config.section_weight(r["section"])
+            weight = config.section_weight(r["section"]) if apply_weights else 1.0
             r["section_weight"] = weight
             r["final_score"] = round(r["similarity_score"] * weight, 4)
         results.sort(key=lambda r: r["final_score"], reverse=True)
@@ -110,10 +115,12 @@ class SearchEngine:
             r["rank"] = rank
         return results
 
-    def search(self, query: str, top_k: int | None = None) -> list[dict]:
+    def search(self, query: str, top_k: int | None = None,
+               rerank: bool = True) -> list[dict]:
         """
-        Embed the query, retrieve candidates from FAISS, rerank by section
-        weight and return the top `top_k` results.
+        Embed the query, retrieve candidates from FAISS, (optionally) rerank by
+        section weight and return the top `top_k` results. Pass rerank=False for
+        pure semantic ranking.
         """
         if not self._loaded:
             self.load()
@@ -140,7 +147,7 @@ class SearchEngine:
                 }
             )
 
-        results = self.rerank(results)
+        results = self.rerank(results, apply_weights=rerank)
         return results[:top_k]
 
     # ------------------------------------------------------------------ #

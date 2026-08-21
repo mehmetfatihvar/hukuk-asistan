@@ -30,20 +30,39 @@ _spec.loader.exec_module(_se)  # type: ignore[union-attr]
 SearchEngine = _se.SearchEngine
 
 
-# Realistic queries a lawyer might type (a described situation, not a keyword).
+# A domain-balanced diagnostic set: situations a lawyer would describe, spanning
+# civil, labour, family, commercial, criminal and procedural law, plus a few
+# abstract-concept queries (the known weak spot). Kept stable so it doubles as a
+# before/after baseline when the embedding model is changed.
 DEFAULT_QUERIES = [
+    # --- civil / property ---
     "kira sözleşmesinin haklı nedenle feshi ve kiracının tahliyesi",
-    "işçinin haklı nedenle feshinde kıdem ve ihbar tazminatı",
-    "trafik kazasında destekten yoksun kalma tazminatının hesabı",
-    "boşanmada kusur oranına göre manevi tazminat",
     "muvazaalı taşınmaz satışında tapu iptali ve tescil",
     "kat karşılığı inşaat sözleşmesinin feshi ve tazminat",
-    "senede dayalı icra takibine itirazın iptali",
-    "tüketicinin ayıplı mal nedeniyle iade ve bedel talebi",
-    "miras bırakanın tasarruflarına karşı tenkis davası",
-    "sigortacının ödediği bedel için sorumluya rücu",
+    # --- labour ---
+    "işçinin haklı nedenle feshinde kıdem ve ihbar tazminatı",
     "işçinin fazla mesai alacağının tanıkla ispatı",
+    # --- tort / compensation ---
+    "trafik kazasında destekten yoksun kalma tazminatının hesabı",
     "haksız fiil sonucu oluşan zararda kusur ve illiyet bağı",
+    # --- family ---
+    "boşanmada kusur oranına göre manevi tazminat",
+    "velayetin değiştirilmesi ve çocuğun üstün yararı",
+    # --- inheritance / consumer / insurance ---
+    "miras bırakanın tasarruflarına karşı tenkis davası",
+    "tüketicinin ayıplı mal nedeniyle iade ve bedel talebi",
+    "sigortacının ödediği bedel için sorumluya rücu",
+    # --- commercial / enforcement ---
+    "senede dayalı icra takibine itirazın iptali",
+    "limited şirkette ortağın haklı nedenle ortaklıktan çıkarılması",
+    # --- criminal ---
+    "kasten yaralama suçunda haksız tahrik indirimi",
+    "silahlı terör örgütüne yardım ile örgüt üyeliği arasındaki ayrım",
+    # --- procedural ---
+    "istinaf süresinin kaçırılması ve eski hale getirme talebi",
+    # --- abstract concepts (known weak spot) ---
+    "sözleşmedeki cezai şartın fahiş olması nedeniyle indirilmesi",
+    "zamanaşımının kesilmesi ve durması halleri",
 ]
 
 

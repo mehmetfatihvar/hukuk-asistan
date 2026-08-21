@@ -141,7 +141,14 @@ TOP_K: int = int(os.getenv("TOP_K", "5"))
 # section-weight reranker has room to reorder).
 SEARCH_CANDIDATES: int = int(os.getenv("SEARCH_CANDIDATES", "30"))
 
-# Reranking weights applied to the cosine similarity per section.
+# Section-weighted reranking. DISABLED by default: the 50-query benchmark
+# showed it *lowers* accuracy (66.4% with vs 69.6% without) because Turkish
+# legal chunks are homogeneous and boosting KARAR surfaces less-similar
+# rulings. Set USE_SECTION_RERANK=1 to re-enable (e.g. after retuning weights).
+USE_SECTION_RERANK: bool = os.getenv("USE_SECTION_RERANK", "0") == "1"
+
+# Reranking weights applied to the cosine similarity per section (only used
+# when USE_SECTION_RERANK is on).
 SECTION_WEIGHTS: dict[str, float] = {
     SECTION_KARAR: 2.0,
     SECTION_KANUN: 1.3,

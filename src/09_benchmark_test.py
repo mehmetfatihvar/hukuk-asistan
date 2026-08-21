@@ -94,12 +94,13 @@ def main() -> None:
     plain_accuracies: list[float] = []  # accuracy WITHOUT section reranking
 
     for i, item in enumerate(queries, 1):
+        # Ablation: measure WITH and WITHOUT section-weighted reranking
+        # explicitly, independent of the config default.
         t0 = time.perf_counter()
-        results = engine.search(item["query"], config.TOP_K)
+        results = engine.search(item["query"], config.TOP_K, rerank=True)
         latency_ms = (time.perf_counter() - t0) * 1000
         latencies.append(latency_ms)
 
-        # Ablation: same query without section-weighted reranking.
         plain = engine.search(item["query"], config.TOP_K, rerank=False)
         plain_rel = sum(1 for r in plain if is_relevant(r, item["keywords"]))
         plain_accuracies.append(plain_rel / (len(plain) or 1))

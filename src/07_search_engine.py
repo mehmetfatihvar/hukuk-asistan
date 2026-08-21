@@ -116,12 +116,15 @@ class SearchEngine:
         return results
 
     def search(self, query: str, top_k: int | None = None,
-               rerank: bool = True) -> list[dict]:
+               rerank: bool | None = None) -> list[dict]:
         """
         Embed the query, retrieve candidates from FAISS, (optionally) rerank by
-        section weight and return the top `top_k` results. Pass rerank=False for
-        pure semantic ranking.
+        section weight and return the top `top_k` results. `rerank` defaults to
+        config.USE_SECTION_RERANK (off — pure semantic ranking, which the
+        benchmark showed is more accurate); pass True/False to override.
         """
+        if rerank is None:
+            rerank = config.USE_SECTION_RERANK
         if not self._loaded:
             self.load()
         top_k = top_k or config.TOP_K

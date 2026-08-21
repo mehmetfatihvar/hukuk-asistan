@@ -246,7 +246,11 @@ All knobs live in `src/config.py`, overridable via env / `.env`:
   nothing else changes).
 - Embeddings are unit-normalised, so FAISS squared-L2 distance converts to
   cosine similarity via `cos = 1 − d/2`.
-- Section-weight reranking lets a strong ruling (`KARAR`, ×2.0) outrank a
-  slightly-more-similar facts chunk (`OYAL`, ×0.8).
+- Section-weight reranking is **off by default** (`USE_SECTION_RERANK=0`): the
+  50-query benchmark showed it *lowers* accuracy (66.4% with vs 69.6% without),
+  because Turkish legal chunks are homogeneous and boosting `KARAR` surfaces
+  less-similar rulings. Ranking is pure cosine similarity. Re-enable with
+  `USE_SECTION_RERANK=1` if you retune the weights; `09_benchmark_test.py`
+  reports both numbers so you can check.
 - Generated data artifacts (CSV/npy/faiss/pkl/json) are git-ignored — rerun the
   pipeline to regenerate them.

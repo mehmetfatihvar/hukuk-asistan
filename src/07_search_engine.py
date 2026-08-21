@@ -79,8 +79,11 @@ class SearchEngine:
         """Return the 384-dim (normalised) embedding for `query`."""
         if not self._loaded:
             self.load()
+        # E5 models need the "query: " prefix (empty for other models) so the
+        # query is embedded in the same space as the "passage: "-prefixed chunks.
+        text = config.QUERY_PREFIX + query
         vec = self._model.encode(
-            [query],
+            [text],
             convert_to_numpy=True,
             normalize_embeddings=config.NORMALIZE_EMBEDDINGS,
         ).astype("float32")

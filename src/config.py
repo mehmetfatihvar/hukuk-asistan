@@ -78,15 +78,31 @@ EXPECTED_COLUMNS: list[str] = [
 # --------------------------------------------------------------------------- #
 # Embedding model
 # --------------------------------------------------------------------------- #
-# Turkish-capable multilingual model (384-dim, fast). This replaces the
-# English-centric all-MiniLM-L6-v2 from the original spec for much better
-# Turkish retrieval quality; it is dimension-compatible (384) so the rest of
-# the pipeline is unchanged. To fall back to the English model set
-#   ST_MODEL_NAME=sentence-transformers/all-MiniLM-L6-v2
+# Default: Turkish-capable multilingual MiniLM (384-dim, fast, no prefixes).
+# To upgrade retrieval quality, set (in .env or the environment):
+#   ST_MODEL_NAME=intfloat/multilingual-e5-large      (1024-dim, prefixes auto)
+#   ST_MODEL_NAME=sentence-transformers/paraphrase-multilingual-mpnet-base-v2  (768-dim)
+# Changing the model requires re-embedding (05) and rebuilding the index (06).
 ST_MODEL_NAME: str = os.getenv(
     "ST_MODEL_NAME", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 )
-EMBEDDING_DIM: int = int(os.getenv("EMBEDDING_DIM", "384"))
+
+# Output dimensionality, auto-detected from the model name (env overrides).
+_DIM_BY_MODEL = [("e5-large", 1024), ("e5-base", 768), ("e5-small", 384),
+                 ("mpnet", 768), ("minilm", 384)]
+_model_lower = ST_MODEL_NAME.lower()
+EMBEDDING_DIM: int = int(os.getenv(
+    "EMBEDDING_DIM",
+    str(next((d for k, d in _DIM_BY_MODEL if k in _model_lower), 384)),
+))
+
+# E5-family models require instruction prefixes ("query:" / "passage:").
+# Auto-enabled by model name; empty for other models. Applied in 05 (passages)
+# and 07 (queries) so both sides match.
+_is_e5 = "e5" in _model_lower
+QUERY_PREFIX: str = os.getenv("QUERY_PREFIX", "query: " if _is_e5 else "")
+PASSAGE_PREFIX: str = os.getenv("PASSAGE_PREFIX", "passage: " if _is_e5 else "")
+
 EMBEDDING_BATCH_SIZE: int = int(os.getenv("EMBEDDING_BATCH_SIZE", "32"))
 # Normalize embeddings so L2 distance is monotonic with cosine similarity and
 # can be converted to a cosine score (see 07_search_engine.py).

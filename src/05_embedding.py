@@ -49,6 +49,11 @@ def main() -> None:
     config.ensure_dirs()
     df = pd.read_csv(config.CHUNKS_CSV)
     texts = df["text"].fillna("").astype(str).tolist()
+    # E5-family models need a "passage: " prefix on the indexed text (empty for
+    # other models). Queries get the matching "query: " prefix in 07.
+    if config.PASSAGE_PREFIX:
+        texts = [config.PASSAGE_PREFIX + t for t in texts]
+        print(f"Passage prefix  : {config.PASSAGE_PREFIX!r}")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Model loaded    : {config.ST_MODEL_NAME}")

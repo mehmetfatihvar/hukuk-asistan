@@ -246,6 +246,13 @@ All knobs live in `src/config.py`, overridable via env / `.env`:
   nothing else changes).
 - Embeddings are unit-normalised, so FAISS squared-L2 distance converts to
   cosine similarity via `cos = 1 − d/2`.
+- **Upgrading the embedding model:** set `ST_MODEL_NAME` (e.g.
+  `intfloat/multilingual-e5-large`, 1024-dim, or
+  `sentence-transformers/paraphrase-multilingual-mpnet-base-v2`, 768-dim);
+  `config.py` auto-detects the dimension and, for E5, the `query:`/`passage:`
+  prefixes. Then re-embed (05) + rebuild the index (06). For a GPU run without
+  a local card, use `notebooks/colab_embed_e5.ipynb` (upload `chunks.csv`,
+  download the four artifacts into `data/processed/`).
 - Section-weight reranking is **off by default** (`USE_SECTION_RERANK=0`): the
   50-query benchmark showed it *lowers* accuracy (66.4% with vs 69.6% without),
   because Turkish legal chunks are homogeneous and boosting `KARAR` surfaces
